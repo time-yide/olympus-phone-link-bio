@@ -132,7 +132,10 @@ window.OLYMPUS = {
   var CHAVES = ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","fbclid","gclid"];
   var url = new URLSearchParams(location.search), origem = {};
   try { origem = JSON.parse(sessionStorage.getItem("olympus_origem") || "{}"); } catch(e) {}
-  CHAVES.forEach(function(k){ if (url.get(k)) origem[k] = url.get(k); });
+  if (typeof origem !== "object" || !origem) origem = {};
+  // só letras, números e ._- (máx. 40): impede texto arbitrário vindo do link na mensagem do cliente
+  function limpa(v){ return String(v).replace(/[^A-Za-z0-9._-]/g,"").slice(0,40); }
+  CHAVES.forEach(function(k){ var v = url.get(k); if (v && limpa(v)) origem[k] = limpa(v); });
   if (!origem.utm_source) { origem.utm_source = "direto"; }
   try { sessionStorage.setItem("olympus_origem", JSON.stringify(origem)); } catch(e) {}
 
@@ -158,13 +161,14 @@ window.OLYMPUS = {
   var ORIGEM_TXT = { instagram:"pelo Instagram", facebook:"pelo Facebook", google:"pelo Google", whatsapp:"pelo WhatsApp" };
   // código curto que aparece no fim da mensagem, ex.: [ig-bio · iphone]
   function codigo(botao){
-    var fonte = ({instagram:"ig",facebook:"fb",google:"gg",whatsapp:"wa"})[origem.utm_source] || origem.utm_source;
+    var SIG = {instagram:"ig",facebook:"fb",google:"gg",whatsapp:"wa"};
+    var fonte = Object.prototype.hasOwnProperty.call(SIG, origem.utm_source) ? SIG[origem.utm_source] : "outro";
     var meio = origem.utm_medium ? "-" + origem.utm_medium : "";
     return "[" + fonte + meio + " · " + botao + (origem.utm_campaign ? " · " + origem.utm_campaign : "") + "]";
   }
   document.querySelectorAll("[data-botao]").forEach(function(a){
     var botao = a.getAttribute("data-botao");
-    var texto = a.getAttribute("data-msg").replace("{origem}", ORIGEM_TXT[origem.utm_source] || "pela página da Olympus") + " " + codigo(botao);
+    var texto = a.getAttribute("data-msg").replace("{origem}", (Object.prototype.hasOwnProperty.call(ORIGEM_TXT, origem.utm_source) ? ORIGEM_TXT[origem.utm_source] : "pela página da Olympus")) + " " + codigo(botao);
     a.href = num ? "https://wa.me/" + num + "?text=" + encodeURIComponent(texto) : "#";
     a.target = "_blank"; a.rel = "noopener";
     a.addEventListener("click", function(ev){
